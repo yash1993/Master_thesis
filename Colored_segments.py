@@ -3,30 +3,30 @@ import cv2
 import os
 
 y = np.zeros((512,512,3),dtype=np.uint8)
-color_list = [[  0 , 60, 255],
- [  0, 120, 255],
- [  0, 180, 255],
- [  0, 240, 255],
- [  0, 255,  30],
- [  0, 255,  90],
- [  0, 255, 150],
- [  0, 255, 210],
- [ 30, 255,   0],
- [ 90, 255,   0],
- [150, 255,   0],
- [210, 255,   0],
- [255,   0,   0],
- [255,   0,  60],
- [255,  60,   0],
- [255, 120,   0],
- [255, 180,   0],
- [255, 240,   0]]
+color_list = [[  0 , 0, 255],
+ [  0, 255, 0],
+ [  255, 0, 0],
+ [  0, 255, 255],
+ [  255, 0, 255],
+ [  255, 255, 0],
+ [  0, 0, 128],
+ [  0, 128, 0],
+ [ 128, 0, 0],
+ [ 0, 128, 128],
+ [128, 0, 128],
+ [128, 128,   0],
+ [255, 128, 0],
+ [252, 3, 115],
+ [83, 55, 122],
+ [255, 128, 128],
+ [129, 112, 102],
+ [244, 200, 0]]
 
 xu = np.ones((512,512)) 
-for i in range(18):
-    x = cv2.imread('/home/yash/Desktop/Test_ouputs/mask_img_55-CF-None-1611675518618-0_Unet_'+str(i)+'.png')[:,:,0]
+for i in range(1,19):
+    x = cv2.imread('/home/yash/Desktop/Master_Thesis/Thesis_data-set/ROCF_Charite/Charite ROCF (28)_masks/Charite ROCF (28)_mask_'+str(i)+'.png')[:,:,0]
     xu = np.where(x==0,0,xu)
-    y[x==0] = color_list[abs(17-i)]
+    y[x==0] = color_list[i-1]
 
 
 #im_color = cv2.applyColorMap(y, cv2.COLORMAP_HSV)

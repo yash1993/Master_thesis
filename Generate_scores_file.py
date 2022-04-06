@@ -42,7 +42,7 @@ for tr_img in images:
     #print(np.histogram(x))
     x = torch.from_numpy(x).view(-1,1,512,512).float()
     x = x.to(device)
-    PATH = '/home/yash/Desktop/Master_Thesis/unet_dice_bcee2e_mid_layer_sig_on_gt.pth'
+    PATH = '/home/yash/Desktop/Master_Thesis/unet_dice_bce_e2e_mid_layer_sig_on_gt_Dec_2021.pth'
     model = UNet_class_mid().to(device)
     #model = FCN8s().to(device)
     model.load_state_dict(torch.load(PATH))
@@ -80,39 +80,39 @@ for tr_img in images:
         # bce = F.cross_entropy(outputs, y, weight=torch.tensor([0.015,1]).to(device))
         # print(bce)
     #print(img)
-#     for i,images in enumerate(img):
-#         cv2.imwrite('/home/yash/Desktop/temp_masks_'+str(i)+'.png', images)
+    for i,j in enumerate(img):
+        cv2.imwrite('/home/yash/Desktop/temp_masks_'+str(i)+'.png', j)
 
-#     y = np.zeros((512,512,3),dtype=np.uint8)
-#     color_list = [[  0 , 60, 255],
-#  [  0, 120, 255],
-#  [  0, 180, 255],
-#  [  0, 240, 255],
-#  [  0, 255,  30],
-#  [  0, 255,  90],
-#  [  0, 255, 150],
-#  [  0, 255, 210],
-#  [ 30, 255,   0],
-#  [ 90, 255,   0],
-#  [150, 255,   0],
-#  [210, 255,   0],
-#  [255,   0,   0],
-#  [255,   0,  60],
-#  [255,  60,   0],
-#  [255, 120,   0],
-#  [255, 180,   0],
-#  [255, 240,   0]]
-#     xu = np.ones((512,512))
-#     for i in range(18):
-#         x = cv2.imread('/home/yash/Desktop/temp_masks_'+str(i)+'.png')[:,:,0]
-#         xu = np.where(x==0,0,xu)
-#         y[x==0] = color_list[17-i]
+    y = np.zeros((512,512,3),dtype=np.uint8)
+    color_list = [[  0 , 0, 255],
+ [  0, 255, 0],
+ [  255, 0, 0],
+ [  0, 255, 255],
+ [  255, 0, 255],
+ [  255, 255, 0],
+ [  0, 0, 128],
+ [  0, 128, 0],
+ [ 128, 0, 0],
+ [ 0, 128, 128],
+ [128, 0, 128],
+ [128, 128,   0],
+ [255, 128, 0],
+ [252, 3, 115],
+ [83, 55, 122],
+ [255, 128, 128],
+ [129, 112, 102],
+ [244, 200, 0]]
+    xu = np.ones((512,512))
+    for i in range(18):
+        x = cv2.imread('/home/yash/Desktop/temp_masks_'+str(i)+'.png')[:,:,0]
+        xu = np.where(x==0,0,xu)
+        y[x==0] = color_list[i]
 
 
-#     y[xu==1] = 255
-#     cv2.imwrite('/home/yash/Desktop/Master_Thesis/Thesis_data-set/UPD_Bern_DFKI_additional_data_Dropbox_09.08.2021/DFKI/Seg_outs/'+tr_img.split('.')[0]+'_segmentation_out.png', y[:,:,[2,1,0]])
+    y[xu==1] = 255
+    cv2.imwrite('/home/yash/Desktop/Master_Thesis/Thesis_data-set/UPD_Bern_DFKI_additional_data_Dropbox_09.08.2021/Seg_outs/'+tr_img.split('.')[0]+'_segmentation_out.png', y[:,:,[2,1,0]])
 #print(score_list)
-df=pd.DataFrame(score_list,columns=['filename','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18'])
-df.to_excel("/home/yash/Desktop/Master_Thesis/UPD_Bern_Data_score_output.xlsx")
-print(df)
+# df=pd.DataFrame(score_list,columns=['filename','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18'])
+# df.to_excel("/home/yash/Desktop/Master_Thesis/UPD_Bern_Data_score_output_update_Dec_2021.xlsx")
+# print(df)
 

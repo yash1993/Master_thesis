@@ -8,9 +8,9 @@ from digital_ink_library.serialization.json import JsonDataSerialization
 import numpy as np
 
 folderpath = "/home/yash/Desktop/Master_Thesis/Thesis_data-set/ROCF_Charite"
-images = os.listdir(folderpath)
-images = [file for file in images if file.split('.')[1] == 'json' ]
-
+# images = os.listdir(folderpath)
+# images = [file for file in images if file.endswith('json') ]
+images = ['Charite ROCF (121)']
 max_x = 0
 max_y = 0
 mask_dict_x = {'1':[], '2':[], '3':[], '4':[], '5':[], '6':[], '7':[], '8':[], '9':[], '10':[], '11':[], '12':[], '13':[], '14':[], '15':[], '16':[], '17':[], '18':[]}
@@ -23,8 +23,8 @@ for img in images:
     #print(filename)
     with open(folderpath+'/'+filename+'.json') as f:
         data = json.load(f)
-
-    os.mkdir(folderpath+'/'+filename+'_masks')
+    if not os.path.exists(folderpath+'/'+filename+'_masks'):
+        os.mkdir(folderpath+'/'+filename+'_masks')
 
     for keys in mask_dict_x:
         
@@ -53,6 +53,15 @@ for img in images:
                     if label == keys:
                         mask_dict_x[label].append(elements['x'][i])
                         mask_dict_y[label].append(elements['y'][i])
+
+                    if len(mask_dict_x[keys]) >= 2 and (mask_dict_x[keys][-2] - mask_dict_x[keys][-1])**2 + (mask_dict_y[keys][-2] - mask_dict_y[keys][-1])**2 > 225:
+                        mask_dict_x[keys].pop()
+                        mask_dict_y[keys].pop()
+                        ax.plot(mask_dict_x[keys],mask_dict_y[keys],'k',linewidth=1.5)
+                        for keys_ in mask_dict_x:
+                            mask_dict_x[keys_] = []
+                        for keys_ in mask_dict_y:
+                            mask_dict_y[keys_] = []
 
             ax.plot(mask_dict_x[keys],mask_dict_y[keys],'k',linewidth=1.5)
             

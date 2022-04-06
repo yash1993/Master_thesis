@@ -33,10 +33,10 @@ for img in images:
         y_cord = []
 
         for nested_elements in elements['points']:
-            # label_check = list(map(int,nested_elements['labels']))
+            label_check = list(map(int,nested_elements['labels']))
             # #print(label_check)
-            # if sum(label_check) == 0:
-                # continue
+            if sum(label_check) == 0:
+                continue
             x_cord.append(nested_elements['x'])
             y_cord.append(nested_elements['y'])
         

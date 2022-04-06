@@ -2,7 +2,7 @@ import sys
 import os
 import cv2
 
-folderpath = "/home/yash/Desktop/Master_Thesis/Thesis_data-set/UPD_Bern_DFKI_additional_data_Dropbox_09.08.2021/DFKI"
+folderpath = "/home/yash/Desktop/Master_Thesis/Thesis_data-set/ROCF_Charite"
 images = os.listdir(folderpath)
 images = [file for file in images if file.endswith('png') ]
 

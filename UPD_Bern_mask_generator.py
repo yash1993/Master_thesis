@@ -7,11 +7,11 @@ from digital_ink_library.sketch import Sketch
 from digital_ink_library.serialization.json import JsonDataSerialization
 import numpy as np
 
-folderpath = "/home/yash/Desktop/Master_Thesis/Thesis_data-set/UPD_Bern_DFKI_additional_data_Dropbox_09.08.2021/DFKI"
+folderpath = "/home/yash/Desktop/Master_Thesis/Thesis_data-set/data"
 
-images = os.listdir(folderpath)
-images = [file for file in images if file.endswith('json') ]
-
+# images = os.listdir(folderpath)
+# images = [file for file in images if file.endswith('json') ]
+images = ['labeled-1781-CF-R','labeled-2143-CF-R','labeled-2241-CF-R','labeled-2242-CF-E','labeled-2269-CF-R']
 
 mask_dict_x = {'1':[], '2':[], '3':[], '4':[], '5':[], '6':[], '7':[], '8':[], '9':[], '10':[], '11':[], '12':[], '13':[], '14':[], '15':[], '16':[], '17':[], '18':[]}
 mask_dict_y = {'1':[], '2':[], '3':[], '4':[], '5':[], '6':[], '7':[], '8':[], '9':[], '10':[], '11':[], '12':[], '13':[], '14':[], '15':[], '16':[], '17':[], '18':[]}
@@ -27,7 +27,8 @@ for img in images:
     with open(folderpath+'/'+filename+'.json') as f:
         data = json.load(f)
 
-    os.mkdir(folderpath+'/'+filename+'_masks')
+    if not os.path.exists(folderpath+'/'+filename+'_masks'):
+        os.mkdir(folderpath+'/'+filename+'_masks')
     
     #Loop for creating white plots to maintain original image resolution among all mask images
     for keys in mask_dict_x:
@@ -59,8 +60,8 @@ for img in images:
                     if label == keys:
                         mask_dict_x[label].append(nested_elements['x'])
                         mask_dict_y[label].append(nested_elements['y'])
-                    #Check if distance between consecutive coordinates is too large to avoid unwanted plots
-                    if len(mask_dict_x[keys]) >= 2 and (mask_dict_x[keys][-2] - mask_dict_x[keys][-1])**2 + (mask_dict_y[keys][-2] - mask_dict_y[keys][-1])**2 > 25:
+                    # Check if distance between consecutive coordinates is too large to avoid unwanted plots
+                    if len(mask_dict_x[keys]) >= 2 and (mask_dict_x[keys][-2] - mask_dict_x[keys][-1])**2 + (mask_dict_y[keys][-2] - mask_dict_y[keys][-1])**2 > 225:
                         mask_dict_x[keys].pop()
                         mask_dict_y[keys].pop()
                         ax.plot(mask_dict_x[keys],mask_dict_y[keys],'k',linewidth=1.5)

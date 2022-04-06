@@ -10,8 +10,8 @@ import numpy as np
 # ax.plot([0,1,2], [10,20,3])
 # fig.savefig('/home/yash/Desktop/Master_Thesis/to4.png')   # save the figure to file
 # plt.close(fig)
-folderpath = "/home/yash/Desktop/Master_Thesis/Thesis_data-set/data"
-filename = "labeled-1654-CF-E"
+folderpath = "/home/yash/Desktop/Master_Thesis/Thesis_data-set/UPD_Bern_DFKI_additional_data_Dropbox_09.08.2021/DFKI"
+filename = "33-CF-None-1605509750025-0"
 #images = os.listdir(folderpath)
 #images = [file for file in images if file.split('.')[1] == 'json' ]
 #print(type(images))
