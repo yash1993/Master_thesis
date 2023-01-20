@@ -3,6 +3,7 @@ from _deeplab import DeepLabHead, DeepLabHeadV3Plus, DeepLabV3
 import resnet
 import mobilenetv2
 
+
 def _segm_resnet(name, backbone_name, num_classes, output_stride, pretrained_backbone):
 
     if output_stride==8:

@@ -1,4 +1,4 @@
-'''Evaluation script to generate outputs using end-to-end model trained on mean squared error loss for scores'''
+'''Evaluation script to generate outputs using end-to-end model trained on cross entropy loss for scores'''
 import os
 import sys
 import torch
@@ -45,43 +45,38 @@ for tr_img in images:
     
     x = torch.from_numpy(x).view(-1,1,512,512).float()
     x = x.to(device)
-    
     # Path to saved model file
-    PATH = '/home/yash/Desktop/Master_Thesis/Dec_2022_plots/unet_dice_bce_e2e_mid_layer_sig_on_gt_Dec_2022_run_2.pth'
+    PATH = '/home/yash/Desktop/Master_Thesis/Dec_2022_plots/unet_dice_bce_e2e_class_mid_layer_Dec_2022_run_7.pth'
     model = UNet_class_mid().to(device)
+    
     model.load_state_dict(torch.load(PATH), strict=False)
     print(model)
     #pdb.set_trace()
     with torch.no_grad():
         model = model.eval()
         seg_outputs, scores = model(x)
-        _, prediction = torch.max(seg_outputs.data, 1)
+        _, seg_prediction = torch.max(seg_outputs.data, 1)
+        
        
-        prediction = prediction.view(18,512,512)
-        img = prediction.cpu().numpy()
+        seg_prediction = seg_prediction.view(18,512,512)
+        img = seg_prediction.cpu().numpy()
         img[img == 0] = 255.0
         img[img == 1] = 0
-        #scores = torch.sigmoid(scores)
+       
+        prob = nn.Softmax(dim=1)
+        scores = prob(scores)
+        _, scores = torch.max(scores.data, dim=1)
         scores = scores.cpu().numpy()
-        #print(scores)
-        for i, ele in enumerate(scores[0,:]):
-            if ele < 0.561:
-                scores[0,i] = 0.0
-            
-            elif ele >= 0.561 and ele < 0.676:
-                scores[0,i] = 0.50
-            
-            elif ele >= 0.676 and ele < 0.805:
-                scores[0,i] = 1.0
-
-            elif ele >= 0.805:
-                scores[0,i] = 2.0
+        
+        scores[scores == 1] = 0.5
+        scores[scores == 2] = 1
+        scores[scores == 3] = 2
         
         scores= list(scores.astype(float)[0])
 
         scores.insert(0,tr_img)
         score_list.append(scores)
-
+        
     for i,j in enumerate(img):
         cv2.imwrite('/home/yash/Desktop/temp_masks_'+str(i)+'.png', j)
 
@@ -110,12 +105,13 @@ for tr_img in images:
         xu = np.where(x==0,0,xu)
         y[x==0] = color_list[i]
 
+
     y[xu==1] = 255
     # Save color segmented output to folder
-    cv2.imwrite('/home/yash/Desktop/Master_Thesis/Thesis_data-set/UPD_Bern_DFKI_additional_data_Dropbox_09.08.2021/Seg_outs/'+tr_img.split('.')[0]+'_segmentation_out.png', y[:,:,[2,1,0]])
+    cv2.imwrite('/home/yash/Desktop/Master_Thesis/Thesis_data-set/UPD_Bern_DFKI_additional_data_Dropbox_09.08.2021/Seg_outs_score_cross_entropy/'+tr_img.split('.')[0]+'_segmentation_out.png', y[:,:,[2,1,0]])
 
 df=pd.DataFrame(score_list,columns=['filename','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18'])
 # Save score output to excel file
-df.to_excel("/home/yash/Desktop/Master_Thesis/Dec_2022_plots/UPD_Bern_latest_result_1.xlsx")
+df.to_excel("/home/yash/Desktop/Master_Thesis/Dec_2022_plots/UPD_Bern_latest_result_2.xlsx")
 
 

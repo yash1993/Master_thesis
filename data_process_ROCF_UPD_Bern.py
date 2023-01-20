@@ -1,4 +1,5 @@
 #%%
+'''Script to pre-process json files from UPD Bern containing coordinates into images'''
 import json
 import sys
 import os
@@ -15,6 +16,8 @@ max_x = 0
 max_y = 0
 scores = []
 png_filename = set()
+
+
 for img in images:
     #print(type(img))
     filename = img.split('.')[0]

@@ -55,15 +55,7 @@ class CustomImageDataset(Dataset):
         index = index % len(self)
         filename = self.idx_list[index]
         input_file_name = self.main_folder+'/'+filename
-        x = cv2.imread(input_file_name)[:,:,0]
-        #mark black pixels as 1 and white pixels 0
-        x[x <= 128] = 1
-        x[x > 128] = 0
-        #print(type(x))
-        #tran = transforms.ToTensor()
-        x = torch.from_numpy(x).view(1,512,512).float()
-        #print(x.shape)
-        #print(torch.sum(x))
+        
         mask_folder = self.main_folder+'/'+filename.split('.')[0]+'_masks'
 
         y = []
@@ -91,42 +83,6 @@ class CustomImageDataset(Dataset):
 
         return y, scores
 
-def dice_loss(pred, target, smooth = 1e-5):
-    pred = pred.contiguous()
-    target = target.contiguous()    
-    prob = nn.Softmax(dim=1)
-    output = prob(pred)
-    intersection = (output[:,1,:,:,:] * target).sum()
-    unionset = output[:,1,:,:,:].sum() + target.sum()
-    loss = (2. * intersection + smooth) / (unionset + smooth)
-    
-    return 1 - (loss/2)
-
-def dice_bce_loss(pred, target, bce_weight=0.5):
-    #pdb.set_trace()
-    bce = F.cross_entropy(pred, target.long(),weight=torch.tensor([0.015,1]).to(device))
-
-    #pred = F.sigmoid(pred)
-    dice = dice_loss(pred, target)
-
-    loss = bce + dice
-    
-    #loss = loss.float()
-    #metrics['bce'] += bce.data.cpu().numpy() * target.size(0)
-    #metrics['dice'] += dice.data.cpu().numpy() * target.size(0)
-    #metrics['loss'] += loss.data.cpu().numpy() * target.size(0)
-    #print(loss.shape)
-    #pdb.set_trace()
-    return loss.mean()
-
-def focal_loss(pred, target, alpha = 0.8, gamma = 2):
-
-    bce = F.cross_entropy(pred, target.long(),weight=torch.tensor([0.015,1]).to(device))
-    BCE_EXP = torch.exp(-bce)
-    focal_loss = alpha * (1-BCE_EXP)**gamma * bce
-
-    return focal_loss
-
 def score_loss(pred, target):
     if args.loss == 'mse_logits':
         l2 = nn.MSELoss()
@@ -143,37 +99,84 @@ def score_loss(pred, target):
 
     return loss
 
-def Iou_accuracy(pred, target, smooth = 1e-5):
-    pred = pred.contiguous()
-    target = target.contiguous()    
-    prob = nn.Softmax(dim=1)
-    output = prob(pred)
-    intersection = (output[:,1,:,:,:] * target).sum()
-    total = output[:,1,:,:,:].sum() + target.sum()
-    unionset = total - intersection
-    iou = (intersection + smooth) / (unionset + smooth)
+def score_accuracy_calc(score_t, score_p):
+    if args.loss == 'mse':
+        sa = 0
+        cum_score_diff = 0
+        score_p = torch.sigmoid(torch.from_numpy(score_p))
+        score_p = score_p.numpy()
+        for i,ele in enumerate(score_p):
+            for j,scores in enumerate(ele):
+                if scores < 0.561:
+                    score_p[i,j] = 0.0
+                        
+                elif scores >= 0.561 and scores < 0.676:
+                    score_p[i,j] = 0.50
+                
+                elif scores >= 0.676 and scores < 0.805:
+                    score_p[i,j] = 1.0
 
-    return iou
+                elif scores >= 0.805:
+                    score_p[i,j] = 2.0    
+        # pdb.set_trace()
+        for i in range(score_p.shape[0]):
+            sa += len(np.where(score_t[i,:] == score_p[i,:])[0])
+            
+        cum_score_diff = abs(np.sum(score_t - score_p))
+
+    if args.loss == 'mse_logits':
+        sa = 0
+        cum_score_diff = 0
+        
+        for i,ele in enumerate(score_p):
+            for j,scores in enumerate(ele):
+                if scores < 0.25:
+                    score_p[i,j] = 0.0
+                        
+                elif scores >= 0.25 and scores < 0.75:
+                    score_p[i,j] = 0.50
+                
+                elif scores >= 0.75 and scores < 1.5:
+                    score_p[i,j] = 1.0
+
+                elif scores >= 1.5:
+                    score_p[i,j] = 2.0    
+        
+        for i in range(score_p.shape[0]):
+            sa += len(np.where(score_t[i,:] == score_p[i,:])[0])
+            
+        cum_score_diff = abs(np.sum(score_t - score_p))
+    
+    return sa/score_p.shape[0], cum_score_diff/score_p.shape[0]
 
 
 
-def train_model_e2e(model, optimizer, scheduler, num_epochs=25):
-    #best_model_wts = copy.deepcopy(model.state_dict())
+def train_model_sketchanet(model, optimizer, scheduler, num_epochs=25):
+    best_model_wts = copy.deepcopy(model.state_dict())
     #best_loss = 1e10
     train_loss_list = []
     val_loss_list = []
-    
+    train_score_accuracy_list = []
+    val_score_accuracy_list = []
+    train_cum_score_diff_list = []
+    val_cum_score_diff_list = []
+    best_score_accuracy = 0
     for epoch in range(num_epochs):
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
         print('-' * 10)
+        
         mean_loss = []
-        mean_IoU = []
+        mean_score_accuracy = []
+        mean_cum_score_diff = []
+        mean_loss_val = []
+        mean_score_accuracy_val = []
+        mean_cum_score_diff_val = []
         since = time.time()
         
         # Each epoch has a training and validation phase
         for phase in ['train','val']:
             if phase == 'train':
-                scheduler.step()
+                
                 for param_group in optimizer.param_groups:
                     print("LR", param_group['lr'])
 
@@ -181,9 +184,6 @@ def train_model_e2e(model, optimizer, scheduler, num_epochs=25):
             else:
                 model.eval()   # Set model to evaluate mode
 
-            #metrics = defaultdict(float)
-            #epoch_samples = 0
-            #pdb.set_trace()
             for inputs, score_truth in dataloaders[phase]:
                 inputs = inputs.to(device)
                 score_truth = score_truth.to(device)
@@ -199,49 +199,102 @@ def train_model_e2e(model, optimizer, scheduler, num_epochs=25):
                     score_l = score_loss(score_out, score_truth.float())
                     
                     score_l = score_l.float()
-                    #pdb.set_trace()
 
-                    
-                    mean_loss.append(score_l.item())
+                    if phase == 'train':
 
+                        score_t = score_truth.cpu()
+                        score_t = score_t.detach().numpy()
+
+                        score_p = score_out.cpu()
+                        score_p = score_p.detach().numpy()
+                        #pdb.set_trace()
+                        sa, cum_score_diff = score_accuracy_calc(score_t,score_p)
+                        mean_score_accuracy.append(sa)
+                        mean_cum_score_diff.append(cum_score_diff)
+
+                        mean_loss.append(score_l.item())
+
+                    if phase == 'val':
+
+                        score_t = score_truth.cpu()
+                        score_t = score_t.detach().numpy()
+
+                        score_p = score_out.cpu()
+                        score_p = score_p.detach().numpy()
+                        #pdb.set_trace()
+                        sa_val, cum_score_diff_val = score_accuracy_calc(score_t,score_p)
+                        mean_score_accuracy_val.append(sa_val)
+                        mean_cum_score_diff_val.append(cum_score_diff_val)
+
+                        mean_loss_val.append(score_l.item())
                     
                     
                     # backward + optimize only if in training phase
-                    if phase == 'train':
+                    if phase == 'train': 
                         score_l.backward()
                         optimizer.step()
 
-                # statistics
-                #epoch_samples += inputs.size(0)
+                
             
             
             if phase == 'train':
-                print('Training loss : ', sum(mean_loss)/len(mean_loss))
-                train_loss_list.append(sum(mean_loss)/len(mean_loss))
-                writer.add_scalar('Train_loss',sum(mean_loss)/len(mean_loss) , epoch)
+                scheduler.step()
+                epoch_train_loss = sum(mean_loss)/len(mean_loss)
+                print('Training loss : ', epoch_train_loss)
+                train_loss_list.append(epoch_train_loss)
+                
+                epoch_train_score_accuracy = sum(mean_score_accuracy)/len(mean_score_accuracy)
+                print('Train score accuracy : ', epoch_train_score_accuracy)
+                train_score_accuracy_list.append(epoch_train_score_accuracy)
+
+                epoch_train_cum_score_diff = sum(mean_cum_score_diff)/len(mean_cum_score_diff)
+                print('Train cumulative score difference : ', epoch_train_cum_score_diff)
+                train_cum_score_diff_list.append(epoch_train_cum_score_diff)
+                # Losses
+                writer.add_scalar("Loss/train", epoch_train_loss, epoch)
+                # Score accuracy
+                writer.add_scalar("mean_score_accuracy/train", epoch_train_score_accuracy, epoch)
 
                 
 
             if phase == 'val':
-                print('Validation loss : ', sum(mean_loss)/len(mean_loss))
-                val_loss_list.append(sum(mean_loss)/len(mean_loss))
-                writer.add_scalar('Val_loss',sum(mean_loss)/len(mean_loss) , epoch)
+                epoch_val_loss = sum(mean_loss_val)/len(mean_loss_val)
+                print('Validation loss : ', epoch_val_loss)
+                val_loss_list.append(epoch_val_loss)
+
+                epoch_val_score_accuracy = sum(mean_score_accuracy_val)/len(mean_score_accuracy_val)
+                print('Validation score accuracy : ', epoch_val_score_accuracy)
+                val_score_accuracy_list.append(epoch_val_score_accuracy)
+
+                epoch_val_cum_score_diff = sum(mean_cum_score_diff_val)/len(mean_cum_score_diff_val)
+                print('Validation cumulative score difference : ', epoch_val_cum_score_diff)
+                val_cum_score_diff_list.append(epoch_val_cum_score_diff)
+
+                writer.add_scalar("Loss/val", epoch_val_loss, epoch)
+                
+                writer.add_scalar("mean_score_accuracy/val", epoch_val_score_accuracy, epoch)
 
             
             # deep copy the model
-            
+        if best_score_accuracy < epoch_train_score_accuracy + epoch_val_score_accuracy:
+
+            best_score_accuracy = epoch_train_score_accuracy + epoch_val_score_accuracy
+            print('----------------------------------')
+            print("Model updated")
+            print('----------------------------------')
+            best_model_wts = copy.deepcopy(model.state_dict())    
 
         time_elapsed = time.time() - since
         print('{:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
         
 
-    #print('Best val loss: {:4f}'.format(best_loss))
-    plot_training(train_loss_list, val_loss_list)
+    
+    plot_training_score_network(args, train_loss_list, val_loss_list, train_score_accuracy_list, val_score_accuracy_list, train_cum_score_diff_list, val_cum_score_diff_list)
     # load best model weights
-    #model.load_state_dict(best_model_wts)
+    model.load_state_dict(best_model_wts)
     return model
 
-def plot_training(train_loss_list = [], val_loss_list = []):
+def plot_training_score_network(args, train_loss_list = [], val_loss_list = [], train_score_accuracy_list = [], val_score_accuracy_list = [], train_cum_score_diff_list = [], val_cum_score_diff_list = []):
     fig, ax = plt.subplots(figsize=(10,10))
     plt.xticks(fontsize=16)
     plt.yticks(fontsize=16)
@@ -251,16 +304,29 @@ def plot_training(train_loss_list = [], val_loss_list = []):
     ax.set_xlabel('Epochs', fontsize=25)
     ax.set_ylabel('Loss', fontsize=25)
     plt.legend()
-    fig.savefig('/home/yash/Desktop/Master_Thesis/Loss_over_epochs_score_network.png', bbox_inches = 'tight',dpi=300)    
+    
+    fig.savefig('/home/yash/Desktop/Master_Thesis/Dec_2022_plots/Loss_over_epochs_Sketchanet_'+args.loss+'.png', bbox_inches = 'tight',dpi=300)    
     plt.close(fig)
-
 
     
 
+    fig2, ax2 = plt.subplots(figsize=(10,10))
+    ax2.plot(train_x_axis, train_score_accuracy_list, 'orange', linewidth=1.5, label = 'train score accuracy')
+    ax2.plot(train_x_axis, val_score_accuracy_list, 'maroon', linewidth=1.5, label = 'val score accuracy')
+    ax2.set_xlabel('Epochs', fontsize=25)
+    ax2.set_ylabel('Score_accuracy', fontsize=25)
+    plt.legend()
+    fig2.savefig('/home/yash/Desktop/Master_Thesis/Dec_2022_plots/Score_accuracy_over_epochs_Sketchanet_'+args.loss+'.png', bbox_inches = 'tight',dpi=300)
+    plt.close(fig)
 
-
-
-
+    fig3, ax3 = plt.subplots(figsize=(10,10))
+    ax3.plot(train_x_axis, train_cum_score_diff_list, 'purple', linewidth=1.5, label = 'train score difference')
+    ax3.plot(train_x_axis, val_cum_score_diff_list, 'cyan', linewidth=1.5, label = 'val score difference')
+    ax3.set_xlabel('Epochs', fontsize=25)
+    ax3.set_ylabel('Mean cumulative score difference', fontsize=25)
+    plt.legend()
+    fig3.savefig('/home/yash/Desktop/Master_Thesis/Dec_2022_plots/Cum_score_diff_over_epochs_Sketchanet_'+args.loss+'.png', bbox_inches = 'tight',dpi=300)
+    plt.close(fig)
 
 
     
@@ -268,7 +334,7 @@ df = pd.concat(pd.read_excel(score_path, sheet_name = None,skiprows = 8), ignore
 df.rename(columns = {'Unnamed: 0':'filename'}, inplace=True)
 df.set_index('filename', inplace=True)
 training_data = CustomImageDataset(train_folderpath, df)
-TrainData1, ValidationData1 = random_split(training_data,[int(0.8*len(training_data)), len(training_data) - int(0.8*len(training_data))], generator=torch.Generator().manual_seed(42))
+TrainData1, ValidationData1 = random_split(training_data,[int(0.8*len(training_data)), len(training_data) - int(0.8*len(training_data))], generator=torch.Generator().manual_seed(69))
 model = SketchaNet().to(device)
     
     
@@ -285,13 +351,13 @@ dataloaders = {'train':train_dataloader,'val':val_dataloader}
 
 optimizer_ft = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=2e-5)
 
-exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=100, gamma=0.1)
+exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=80, gamma=0.1)
 
 
-model = train_model_e2e(model, optimizer_ft, exp_lr_scheduler, num_epochs=200)
+model = train_model_sketchanet(model, optimizer_ft, exp_lr_scheduler, num_epochs=200)
 
 
-PATH = '/home/yash/Desktop/Master_Thesis/Score_network.pth'
+PATH = '/home/yash/Desktop/Master_Thesis/Dec_2022_plots/Score_network_'+ args.loss +'.pth'
 
 torch.save(model.state_dict(), PATH)
 

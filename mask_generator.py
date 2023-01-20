@@ -1,4 +1,4 @@
-#%%
+'''Script to generate ground truth masks for ROCF-test images'''
 import json
 import sys
 import os
@@ -7,10 +7,11 @@ from digital_ink_library.sketch import Sketch
 from digital_ink_library.serialization.json import JsonDataSerialization
 import numpy as np
 
+# Folder path for input json files
 folderpath = "/home/yash/Desktop/Master_Thesis/Thesis_data-set/ROCF_Charite"
-# images = os.listdir(folderpath)
-# images = [file for file in images if file.endswith('json') ]
-images = ['Charite ROCF (121)']
+images = os.listdir(folderpath)
+images = [file for file in images if file.endswith('json') ]
+# images = ['Charite ROCF (121)']
 max_x = 0
 max_y = 0
 mask_dict_x = {'1':[], '2':[], '3':[], '4':[], '5':[], '6':[], '7':[], '8':[], '9':[], '10':[], '11':[], '12':[], '13':[], '14':[], '15':[], '16':[], '17':[], '18':[]}
@@ -26,8 +27,10 @@ for img in images:
     if not os.path.exists(folderpath+'/'+filename+'_masks'):
         os.mkdir(folderpath+'/'+filename+'_masks')
 
+    # Iterate through all the 18 labels and find coordinates for them
     for keys in mask_dict_x:
         
+        # Dummy plot loop
         fig, ax = plt.subplots( nrows=1, ncols=1 ,figsize=(5,5))
         for elements in data['strokes']:
             new_elements_x = []
@@ -42,7 +45,7 @@ for img in images:
         
             ax.plot(new_elements_x,new_elements_y,'w',linewidth=1.5) 
 
-
+        # Main loop to find coordinates with corresponding label
         for elements in data['strokes']:
             
             for i, label_list in enumerate(elements['meta']['labels']):
@@ -54,7 +57,9 @@ for img in images:
                         mask_dict_x[label].append(elements['x'][i])
                         mask_dict_y[label].append(elements['y'][i])
 
-                    if len(mask_dict_x[keys]) >= 2 and (mask_dict_x[keys][-2] - mask_dict_x[keys][-1])**2 + (mask_dict_y[keys][-2] - mask_dict_y[keys][-1])**2 > 225:
+                    # Condition to check for distance. This is checked to avoid unwanted lines in the output masks
+                    # The value of 50 for distance limit is determined empirically
+                    if len(mask_dict_x[keys]) >= 2 and (mask_dict_x[keys][-2] - mask_dict_x[keys][-1])**2 + (mask_dict_y[keys][-2] - mask_dict_y[keys][-1])**2 > 50:
                         mask_dict_x[keys].pop()
                         mask_dict_y[keys].pop()
                         ax.plot(mask_dict_x[keys],mask_dict_y[keys],'k',linewidth=1.5)
@@ -77,7 +82,6 @@ for img in images:
         ax.yaxis.tick_left()                    # remove right y-Ticks
 
         ax.axis('off')
-        #plt.draw()
         
         fig.savefig(folderpath+'/'+filename+'_masks/'+filename+'_mask_'+keys+'.png', bbox_inches = 'tight',pad_inches = 0,dpi=100)
         plt.close(fig)

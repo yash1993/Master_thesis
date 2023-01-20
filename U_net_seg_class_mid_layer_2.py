@@ -4,45 +4,44 @@ from torchvision import models
 
 from collections import OrderedDict
 
-class UNet_class_mid(nn.Module):
+class UNet_class_mid_2(nn.Module):
 
     def __init__(self, in_channels=1, out_channels=36, init_features=32):
-        super(UNet_class_mid, self).__init__()
+        super(UNet_class_mid_2, self).__init__()
 
         features = init_features
-        self.encoder1 = UNet_class_mid._block(in_channels, features, name="enc1")
+        self.encoder1 = UNet_class_mid_2._block(in_channels, features, name="enc1")
         self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.encoder2 = UNet_class_mid._block(features, features * 2, name="enc2")
+        self.encoder2 = UNet_class_mid_2._block(features, features * 2, name="enc2")
         self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.encoder3 = UNet_class_mid._block(features * 2, features * 4, name="enc3")
+        self.encoder3 = UNet_class_mid_2._block(features * 2, features * 4, name="enc3")
         self.pool3 = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.encoder4 = UNet_class_mid._block(features * 4, features * 8, name="enc4")
+        self.encoder4 = UNet_class_mid_2._block(features * 4, features * 8, name="enc4")
         self.pool4 = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        self.bottleneck = UNet_class_mid._block(features * 8, features * 16, name="bottleneck")
+        self.bottleneck = UNet_class_mid_2._block(features * 8, features * 16, name="bottleneck")
 
         self.upconv4 = nn.ConvTranspose2d(
             features * 16, features * 8, kernel_size=2, stride=2
         )
-        self.decoder4 = UNet_class_mid._block((features * 8) * 2, features * 8, name="dec4")
+        self.decoder4 = UNet_class_mid_2._block((features * 8) * 2, features * 8, name="dec4")
         self.upconv3 = nn.ConvTranspose2d(
             features * 8, features * 4, kernel_size=2, stride=2
         )
-        self.decoder3 = UNet_class_mid._block((features * 4) * 2, features * 4, name="dec3")
+        self.decoder3 = UNet_class_mid_2._block((features * 4) * 2, features * 4, name="dec3")
         self.upconv2 = nn.ConvTranspose2d(
             features * 4, features * 2, kernel_size=2, stride=2
         )
-        self.decoder2 = UNet_class_mid._block((features * 2) * 2, features * 2, name="dec2")
+        self.decoder2 = UNet_class_mid_2._block((features * 2) * 2, features * 2, name="dec2")
         self.upconv1 = nn.ConvTranspose2d(
             features * 2, features, kernel_size=2, stride=2
         )
-        self.decoder1 = UNet_class_mid._block(features * 2, features, name="dec1")
+        self.decoder1 = UNet_class_mid_2._block(features * 2, features, name="dec1")
 
         self.conv = nn.Conv2d(
             in_channels=features, out_channels=out_channels, kernel_size=1
         )
-    
-        self.class_conv_ce = nn.Sequential((nn.MaxPool2d(kernel_size = 2, stride = 2)),
+        self.class_conv_sig = nn.Sequential((nn.MaxPool2d(kernel_size = 2, stride = 2)),
         (nn.Conv2d(512, 256, kernel_size = 3, padding = 1)),
         (nn.BatchNorm2d(num_features = 256)),
         (nn.ReLU(inplace=True)),
@@ -50,15 +49,16 @@ class UNet_class_mid(nn.Module):
         (nn.Conv2d(256, 128, kernel_size = 3, padding = 1)),
         (nn.BatchNorm2d(num_features = 128)),
         (nn.ReLU(inplace=True)),
+        (nn.MaxPool2d(kernel_size = 2, stride = 2)),
+        (nn.Conv2d(128, 64, kernel_size = 3, padding = 1)),
+        (nn.BatchNorm2d(num_features = 64)),
+        (nn.ReLU(inplace=True)),
+        (nn.MaxPool2d(kernel_size = 2, stride = 2)),
         (nn.Flatten()),
-        (nn.Dropout(0.5)),
-        (nn.Linear(8192, 1024)),
-        (nn.ReLU(inplace=True)),
-        (nn.Dropout(0.5)),
-        (nn.Linear(1024,256)),
-        (nn.ReLU(inplace=True)),
-        (nn.Dropout(0.5)),
-        (nn.Linear(256,72)))
+        (nn.Linear(256, 64)),
+        (nn.ReLU(inplace=True)),    
+        (nn.Linear(64, 18)))
+        
 
 
     def forward(self, x):
@@ -84,8 +84,7 @@ class UNet_class_mid(nn.Module):
     
         
         #score_out = torch.sigmoid(self.class_conv_sig(bottleneck))
-        score_out = self.class_conv_ce(bottleneck).view(-1,4,18)
-        #score_out = self.class_conv_sig(bottleneck)
+        score_out = self.class_conv_sig(bottleneck)
         
         return self.conv(dec1).view(-1,2,18,512,512), score_out
 

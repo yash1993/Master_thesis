@@ -1,3 +1,4 @@
+'''Script to add padding to images'''
 import sys
 import os
 import cv2
